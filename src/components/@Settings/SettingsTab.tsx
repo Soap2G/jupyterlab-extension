@@ -55,6 +55,13 @@ const useStyles = createUseStyles({
   buttonContainer: {
     extend: 'container'
   },
+  validateButton: {
+    extend: 'container'
+  },
+  validationMessage: {
+    extend: 'subtitle',
+    margin: '8px 8px 16px 8px'
+  },
   instanceName: {
     fontSize: '16pt'
   },
@@ -176,6 +183,27 @@ const _Settings: React.FunctionComponent = props => {
     return actions
       .postActiveInstance(instanceName, authType)
       .catch(e => console.log(e));
+  };
+
+  const [validating, setValidating] = useState(false);
+  const [validationResult, setValidationResult] = useState<string | null>(null);
+
+  const validateConnection = async () => {
+    setValidating(true);
+    setValidationResult(null);
+    try {
+      const response = await fetch('/your-extension/validate-connection', { method: 'POST' });
+      const data = await response.json();
+      if (data.success) {
+        setValidationResult("✅ Connection successful!");
+      } else {
+        setValidationResult(`❌ Connection failed: ${data.error}`);
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      setValidationResult(`❌ Connection failed: ${errorMessage}`);
+    }
+    setValidating(false);
   };
 
   const saveSettings = () => {
@@ -442,6 +470,20 @@ const _Settings: React.FunctionComponent = props => {
           {loading && <>Saving...</>}
           {!loading && showSaved && <>Saved!</>}
         </Button>
+        <Button
+          block
+          onClick={validateConnection}
+          disabled={loading}
+          color="#1976d2"
+          className={classes.validateButton}
+        >
+          {validating ? "Validating..." : "Validate Connection"}
+        </Button>
+        {validationResult && (
+          <div className={classes.validationMessage}>
+            {validationResult}
+          </div>
+        )}
       </div>
     </div>
   );
