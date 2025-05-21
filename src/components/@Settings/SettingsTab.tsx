@@ -60,6 +60,7 @@ const useStyles = createUseStyles({
   },
   validationMessage: {
     extend: 'subtitle',
+    marginTop: '8px',
     margin: '8px 8px 16px 8px'
   },
   instanceName: {
@@ -187,21 +188,20 @@ const _Settings: React.FunctionComponent = props => {
 
   const [validating, setValidating] = useState(false);
   const [validationResult, setValidationResult] = useState<string | null>(null);
-
-  const validateConnection = async () => {
+  
+  const handleValidateConnection = async () => {
     setValidating(true);
     setValidationResult(null);
     try {
-      const response = await fetch('/your-extension/validate-connection', { method: 'POST' });
-      const data = await response.json();
-      if (data.success) {
-        setValidationResult("✅ Connection successful!");
+      // Replace 'namespace' and 'account' with your actual values
+      const result = await actions.validateConnection(selectedInstance, selectedAuthType);
+      if (result.success) {
+        setValidationResult('✅ Connection successful!');
       } else {
-        setValidationResult(`❌ Connection failed: ${data.error}`);
+        setValidationResult(`❌ Connection failed: ${result.error}`);
       }
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      setValidationResult(`❌ Connection failed: ${errorMessage}`);
+    } catch (error: any) {
+      setValidationResult(`❌ Connection failed: ${error.message}`);
     }
     setValidating(false);
   };
@@ -472,8 +472,8 @@ const _Settings: React.FunctionComponent = props => {
         </Button>
         <Button
           block
-          onClick={validateConnection}
-          disabled={loading}
+          onClick={handleValidateConnection}
+          disabled={validating}
           color="#1976d2"
           className={classes.validateButton}
         >
