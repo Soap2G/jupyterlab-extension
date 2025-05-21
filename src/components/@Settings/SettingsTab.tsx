@@ -56,6 +56,7 @@ const useStyles = createUseStyles({
     extend: 'container'
   },
   validateButton: {
+    marginTop: '8px',
     extend: 'container'
   },
   validationMessage: {

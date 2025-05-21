@@ -57,6 +57,27 @@ def authenticate_x509(base_url, cert_path, key_path=None, account=None, vo=None,
     except:
         traceback.print_exc()
         raise RucioAuthenticationException()
+    
+
+def authenticate_x509_proxy(base_url, proxy_path=None, account=None, vo=None, app_id=None, rucio_ca_cert=False):
+    try:
+        account = account if account != '' else None    # Empty string is considered None
+
+        headers = {'X-Rucio-Account': account, 'X-Rucio-VO': vo, 'X-Rucio-AppID': app_id}
+        headers = utils.remove_none_values(headers)
+
+        cert = (proxy_path)
+        response = requests.get(url=f'{base_url}/auth/x509_proxy', headers=headers, cert=cert, verify=rucio_ca_cert)
+        response_headers = response.headers
+
+        auth_token = response_headers['X-Rucio-Auth-Token']
+        expires = response_headers['X-Rucio-Auth-Token-Expires']
+        expires = parse_timestamp(expires)
+
+        return (auth_token, expires)
+    except:
+        traceback.print_exc()
+        raise RucioAuthenticationException()
 
 
 def authenticate_oidc(base_url, oidc_auth, oidc_auth_source, rucio_ca_cert=False):
