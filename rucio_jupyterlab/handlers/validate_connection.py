@@ -17,6 +17,7 @@ class ValidateConnectionHandler(RucioAPIHandler):
     @prometheus_metrics
     def get(self):
         namespace = self.get_query_argument("namespace", default=None)
+        print("namespace", namespace) # Debugging line
         auth_type = self.get_query_argument("auth_type", default=None)
 
         if not namespace or namespace == "undefined":
