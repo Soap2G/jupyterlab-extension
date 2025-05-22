@@ -29,11 +29,12 @@ class ValidateConnectionHandler(RucioAPIHandler):
             rucio = self.rucio.for_instance(namespace)
             base_url = rucio.instance_config.get("rucio_base_url")
             account = rucio.instance_config.get("account")
+            print("account", account) # Debugging line
             vo = rucio.instance_config.get("vo")
             app_id = rucio.instance_config.get("app_id")
             rucio_ca_cert = rucio.instance_config.get("rucio_ca_cert", False)
 
-            config = rucio.auth_config
+            config = rucio.instance_config
 
             if auth_type == "userpass":
                 username = config.get("username")
