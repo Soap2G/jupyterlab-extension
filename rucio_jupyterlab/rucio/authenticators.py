@@ -23,10 +23,13 @@ def authenticate_userpass(base_url, username, password, account=None, vo=None, a
         account = account if account != '' else None    # Empty string is considered None
 
         headers = {'X-Rucio-Account': account, 'X-Rucio-VO': vo, 'X-Rucio-Username': username, 'X-Rucio-Password': password, 'X-Rucio-AppID': app_id}
+        print(f'headers: {headers}') # Debugging line
         headers = utils.remove_none_values(headers)
 
         response = requests.get(url=f'{base_url}/auth/userpass', headers=headers, verify=rucio_ca_cert)
+        print(f'response: {response}') # Debugging line
         response_headers = response.headers
+        print(f'response_headers: {response_headers}') # Debugging line
 
         auth_token = response_headers['X-Rucio-Auth-Token']
         expires = response_headers['X-Rucio-Auth-Token-Expires']
