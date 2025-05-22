@@ -110,6 +110,13 @@ const useStyles = createUseStyles({
       background: '#689f38'
     }
   },
+  buttonSavedError: {
+    background: '#f44336',
+    color: '#ffffff',
+    '&:hover': {
+      background: '#689f38'
+    }
+  },
   buttonPurgedAcknowledgement: {
     extend: 'purgeButton',
     background: 'var(--jp-error-color1)',
@@ -163,6 +170,7 @@ const _Settings: React.FunctionComponent = props => {
     useState<boolean>(false);
   const [purgingCache, setPurgingCache] = useState<boolean>(false);
   const [showCachePurged, setShowCachePurged] = useState<boolean>(false);
+  const [validationResult, setValidationResult] = useState<string | null>(null);
 
   const instanceOptions = useMemo(
     () => instances?.map(i => ({ label: i.displayName, value: i.name })),
@@ -187,32 +195,15 @@ const _Settings: React.FunctionComponent = props => {
       .catch(e => console.log(e));
   };
 
-  const [validating, setValidating] = useState(false);
-  const [validationResult, setValidationResult] = useState<string | null>(null);
-  
-  const handleValidateConnection = async () => {
-    setValidating(true);
-    setValidationResult(null);
-    try {
-      // Replace 'namespace' and 'account' with your actual values
-      const result = await actions.validateConnection(selectedInstance, selectedAuthType);
-      if (result.success) {
-        setValidationResult('✅ Connection successful!');
-      } else {
-        setValidationResult(`❌ Connection failed: ${result.error}`);
-      }
-    } catch (error: any) {
-      setValidationResult(`❌ Connection failed: ${error.message}`);
-    }
-    setValidating(false);
-  };
-
-  const saveSettings = () => {
+  const saveSettings = async () => {
     if (!selectedInstance) {
       return;
     }
-
+  
     const promises = [];
+    let putAuthConfigSuccess = false;
+    let putAuthConfigError: string | null = null;
+  
     if (selectedInstance && selectedAuthType) {
       const setActiveInstancePromise = setActiveInstance(
         selectedInstance,
@@ -220,7 +211,7 @@ const _Settings: React.FunctionComponent = props => {
       );
       promises.push(setActiveInstancePromise);
     }
-
+  
     if (selectedAuthType) {
       const rucioAuthCredentials = (() => {
         switch (selectedAuthType) {
@@ -230,28 +221,47 @@ const _Settings: React.FunctionComponent = props => {
             return rucioX509AuthCredentials;
           case 'x509_proxy':
             return rucioX509ProxyAuthCredentials;
+          default:
+            return null;
         }
       })();
-
+  
       if (rucioAuthCredentials) {
-        const setPutAuthConfigPromise = actions.putAuthConfig(
-          selectedInstance,
-          selectedAuthType,
-          rucioAuthCredentials
-        );
+        const setPutAuthConfigPromise = actions
+          .putAuthConfig(selectedInstance, selectedAuthType, rucioAuthCredentials)
+          .then(() => {
+            putAuthConfigSuccess = true;
+          })
+          .catch((err) => {
+            putAuthConfigError = err.message || 'Unknown error';
+          });
         promises.push(setPutAuthConfigPromise);
+      } else {
+        setValidationResult('❌ Missing authentication credentials');
+        return;
       }
     }
-
+  
     setLoading(true);
+  
     Promise.all(promises)
       .then(() => {
+        if (putAuthConfigSuccess) {
+          setValidationResult('✅ Connection successful!');
+        } else if (putAuthConfigError) {
+          setValidationResult(`❌ Connection failed: ${putAuthConfigError}`);
+        }
         setShowSaved(true);
         setTimeout(() => setShowSaved(false), 3000);
       })
-      .finally(() => setLoading(false));
+      .catch((err) => {
+        setValidationResult(`❌ Unexpected error: ${err.message || err}`);
+      })
+      .finally(() => {
+        setLoading(false);
+      });
   };
-
+    
   const reloadAuthConfig = () => {
     if (!selectedInstance) {
       return;
@@ -464,22 +474,17 @@ const _Settings: React.FunctionComponent = props => {
           className={
             !loading && showSaved
               ? classes.buttonSavedAcknowledgement
+              : !loading && validationResult?.startsWith('❌')
+              ? classes.buttonSavedError
               : undefined
           }
         >
-          {!loading && !showSaved && <>Save Settings</>}
           {loading && <>Saving...</>}
           {!loading && showSaved && <>Saved!</>}
+          {!loading && validationResult?.startsWith('❌') && <>Error!</>}
+          {!loading && !showSaved && !validationResult?.startsWith('❌') && <>Save Settings</>}
         </Button>
-        <Button
-          block
-          onClick={handleValidateConnection}
-          disabled={validating}
-          color="#1976d2"
-          className={classes.validateButton}
-        >
-          {validating ? "Validating..." : "Validate Connection"}
-        </Button>
+
         {validationResult && (
           <div className={classes.validationMessage}>
             {validationResult}

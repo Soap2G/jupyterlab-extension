@@ -13,6 +13,7 @@ from rucio_jupyterlab.db import get_db
 from rucio_jupyterlab.rucio import RucioAPI
 from .base import RucioAPIHandler
 from rucio_jupyterlab.metrics import prometheus_metrics
+from rucio_jupyterlab.rucio.authenticators import authenticate_userpass, authenticate_x509, authenticate_oidc
 
 
 
@@ -27,7 +28,7 @@ class AuthConfigHandler(RucioAPIHandler):
         namespace = self.get_query_argument('namespace')
         auth_type = self.get_query_argument('type')
 
-        db = get_db()  # pylint: disable=invalid-name
+        db = get_db()
         auth_credentials = db.get_rucio_auth_credentials(namespace=namespace, auth_type=auth_type)
 
         if auth_credentials:
@@ -35,6 +36,7 @@ class AuthConfigHandler(RucioAPIHandler):
         else:
             self.set_status(404)
             self.finish({'success': False, 'error': 'Auth credentials not set'})
+
 
     @tornado.web.authenticated
     @prometheus_metrics
@@ -44,9 +46,64 @@ class AuthConfigHandler(RucioAPIHandler):
         auth_type = json_body['type']
         params = json_body['params']
 
-        db = get_db()  # pylint: disable=invalid-name
+        db = get_db()
         db.set_rucio_auth_credentials(namespace=namespace, auth_type=auth_type, params=params)
 
         RucioAPI.clear_auth_token_cache()
 
-        self.finish(json.dumps({'success': True}))
+        # Get instance config to perform connection test
+        instance = self.rucio.for_instance(namespace)
+        app_id = instance.instance_config.get('app_id')
+        vo = instance.instance_config.get('vo')
+        base_url = instance.instance_config.get("rucio_base_url")
+        rucio_ca_cert = instance.instance_config.get("rucio_ca_cert", False)
+
+        try:
+            if auth_type == 'userpass':
+                authenticate_userpass(
+                    base_url=base_url,
+                    username=params.get('username'),
+                    password=params.get('password'),
+                    account=params.get('account'),
+                    vo=vo,
+                    app_id=app_id,
+                    rucio_ca_cert=rucio_ca_cert
+                )
+            elif auth_type == 'x509':
+                authenticate_x509(
+                    base_url=base_url,
+                    cert_path=params.get('certificate'),
+                    key_path=params.get('key'),
+                    account=params.get('account'),
+                    vo=vo,
+                    app_id=app_id,
+                    rucio_ca_cert=rucio_ca_cert
+                )
+            elif auth_type == 'x509_proxy':
+                proxy = params.get('proxy')
+                authenticate_x509(
+                    base_url=base_url,
+                    cert_path=proxy,
+                    key_path=proxy,
+                    account=params.get('account'),
+                    vo=vo,
+                    app_id=app_id,
+                    rucio_ca_cert=rucio_ca_cert
+                )
+            elif auth_type == 'oidc':
+                oidc_auth = params.get('oidc_auth')
+                oidc_auth_source = params.get('oidc_env_name') if oidc_auth == 'env' else params.get('oidc_file_name')
+                authenticate_oidc(
+                    base_url=base_url,
+                    oidc_auth=oidc_auth,
+                    oidc_auth_source=oidc_auth_source,
+                    rucio_ca_cert=rucio_ca_cert
+                )
+            else:
+                raise ValueError("Unsupported authentication type")
+
+            # If no exception, authentication was successful
+            self.finish(json.dumps({'success': True}))
+        except Exception as e:
+            self.set_status(401)
+            self.finish(json.dumps({'success': False, 'error': str(e)}))

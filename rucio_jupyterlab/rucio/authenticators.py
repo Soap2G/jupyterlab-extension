@@ -14,8 +14,13 @@ import rucio_jupyterlab.utils as utils
 from .utils import parse_timestamp, get_oidc_token
 
 
-class RucioAuthenticationException(BaseException):
-    pass
+class RucioAuthenticationException(Exception):
+    def __init__(self, status_code, reason, message):
+        self.status_code = status_code
+        self.reason = reason
+        self.message = message
+        super().__init__(f"Authentication failed: {status_code} {reason}. Message: {message}")
+
 
 
 def authenticate_userpass(base_url, username, password, account=None, vo=None, app_id=None, rucio_ca_cert=False):
