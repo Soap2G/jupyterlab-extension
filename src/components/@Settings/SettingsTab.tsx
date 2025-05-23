@@ -277,11 +277,22 @@ const _Settings: React.FunctionComponent = props => {
     setCredentialsLoading(true);
 
     if (selectedAuthType === 'userpass') {
+      console.log('Fetching userpass auth config');
+      console.log('Fetching userpass auth config for instance:', selectedInstance);
       actions
         .fetchAuthConfig<IRucioUserpassAuth>(selectedInstance, selectedAuthType)
-        .then(c => setRucioUserpassAuthCredentials(c))
-        .catch(() => setRucioUserpassAuthCredentials(undefined))
-        .finally(() => setCredentialsLoading(false));
+        .then(c => {
+          console.log('Fetched userpass auth config successfully:', c);
+          setRucioUserpassAuthCredentials(c);
+        })
+        .catch(err => {
+          console.error('Error fetching userpass auth config:', err);
+          setRucioUserpassAuthCredentials(undefined);
+        })
+        .finally(() => {
+          console.log('Finished fetching userpass auth config');
+          setCredentialsLoading(false);
+        });
     } else if (selectedAuthType === 'x509') {
       actions
         .fetchAuthConfig<IRucioX509Auth>(selectedInstance, selectedAuthType)
@@ -290,19 +301,26 @@ const _Settings: React.FunctionComponent = props => {
         .finally(() => setCredentialsLoading(false));
     } else if (selectedAuthType === 'x509_proxy') {
       actions
-        .fetchAuthConfig<IRucioX509ProxyAuth>(
-          selectedInstance,
-          selectedAuthType
-        )
+        .fetchAuthConfig<IRucioX509ProxyAuth>(selectedInstance, selectedAuthType)
         .then(c => setRucioX509ProxyAuthCredentials(c))
         .catch(() => setRucioX509ProxyAuthCredentials(undefined))
         .finally(() => setCredentialsLoading(false));
     } else if (selectedAuthType === 'oidc') {
+      console.log('Fetching OIDC auth config for instance:', selectedInstance);
       actions
         .fetchAuthConfig<IRucioOIDCAuth>(selectedInstance, selectedAuthType)
-        .then(c => setRucioOIDCAuthCredentials(c))
-        .catch(() => setRucioOIDCAuthCredentials(undefined))
-        .finally(() => setCredentialsLoading(false));
+        .then(c => {
+          console.log('Fetched OIDC auth config successfully:', c);
+          setRucioOIDCAuthCredentials(c);
+        })
+        .catch(err => {
+          console.error('Error fetching OIDC auth config:', err);
+          setRucioOIDCAuthCredentials(undefined);
+        })
+        .finally(() => {
+          console.log('Finished fetching OIDC auth config');
+          setCredentialsLoading(false);
+        });
     }
   };
 
