@@ -24,7 +24,8 @@ import {
   RucioAuthType,
   IRucioUserpassAuth,
   IRucioX509Auth,
-  IRucioX509ProxyAuth
+  IRucioX509ProxyAuth,
+  IRucioOIDCAuth
 } from '../../types';
 import { HorizontalHeading } from '../HorizontalHeading';
 
@@ -165,6 +166,8 @@ const _Settings: React.FunctionComponent = props => {
     useState<IRucioX509Auth>();
   const [rucioX509ProxyAuthCredentials, setRucioX509ProxyAuthCredentials] =
     useState<IRucioX509ProxyAuth>();
+  const [rucioOIDCAuthCredentials, setRucioOIDCAuthCredentials] =
+    useState<IRucioOIDCAuth>();
   const [credentialsLoading, setCredentialsLoading] = useState<boolean>(true);
   const [loading, setLoading] = useState<boolean>(false);
   const [showSaved, setShowSaved] = useState<boolean>(false);
@@ -214,6 +217,7 @@ const _Settings: React.FunctionComponent = props => {
           case 'userpass': return rucioUserpassAuthCredentials;
           case 'x509': return rucioX509AuthCredentials;
           case 'x509_proxy': return rucioX509ProxyAuthCredentials;
+          case 'oidc': return rucioOIDCAuthCredentials;
           default: return null;
         }
       })();
@@ -292,6 +296,12 @@ const _Settings: React.FunctionComponent = props => {
         )
         .then(c => setRucioX509ProxyAuthCredentials(c))
         .catch(() => setRucioX509ProxyAuthCredentials(undefined))
+        .finally(() => setCredentialsLoading(false));
+    } else if (selectedAuthType === 'oidc') {
+      actions
+        .fetchAuthConfig<IRucioOIDCAuth>(selectedInstance, selectedAuthType)
+        .then(c => setRucioOIDCAuthCredentials(c))
+        .catch(() => setRucioOIDCAuthCredentials(undefined))
         .finally(() => setCredentialsLoading(false));
     }
   };
