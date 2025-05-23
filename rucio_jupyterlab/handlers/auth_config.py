@@ -13,7 +13,7 @@ from rucio_jupyterlab.db import get_db
 from rucio_jupyterlab.rucio import RucioAPI
 from .base import RucioAPIHandler
 from rucio_jupyterlab.metrics import prometheus_metrics
-from rucio_jupyterlab.rucio.authenticators import authenticate_userpass, authenticate_x509, authenticate_oidc
+from rucio_jupyterlab.rucio.authenticators import authenticate_userpass, authenticate_x509, authenticate_oidc, authenticate_x509_proxy
 
 
 
@@ -73,6 +73,7 @@ class AuthConfigHandler(RucioAPIHandler):
         vo = instance.instance_config.get('vo')
         base_url = instance.instance_config.get("rucio_base_url")
         rucio_ca_cert = instance.instance_config.get("rucio_ca_cert", False)
+        oidc_auth = instance.instance_config.get("oidc_auth")
 
         try:
             if auth_type == 'userpass':
@@ -96,20 +97,21 @@ class AuthConfigHandler(RucioAPIHandler):
                     rucio_ca_cert=rucio_ca_cert
                 )
             elif auth_type == 'x509_proxy':
-                proxy = params.get('proxy')
-                authenticate_x509(
+                print(f"params: {params}")  # Debugging line
+                authenticate_x509_proxy(
                     base_url=base_url,
-                    cert_path=proxy,
-                    key_path=proxy,
+                    proxy_path=params.get('proxy'),
                     account=params.get('account'),
                     vo=vo,
                     app_id=app_id,
                     rucio_ca_cert=rucio_ca_cert
                 )
             elif auth_type == 'oidc':
-                oidc_auth = params.get('oidc_auth')
+                print("-------------------------------------------------")
+                print(f"params: {params}")  # Debugging line
                 print(f"oidc_auth: {oidc_auth}") # Debugging line
-                oidc_auth_source = params.get('oidc_env_name') if oidc_auth == 'env' else params.get('oidc_file_name')
+                oidc_auth_source = params.get('oidcAuthSource')
+                print(f"oidc_auth_source: {oidc_auth_source}") # Debugging line
                 authenticate_oidc(
                     base_url=base_url,
                     oidc_auth=oidc_auth,
