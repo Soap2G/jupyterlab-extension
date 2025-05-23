@@ -27,10 +27,26 @@ class AuthConfigHandler(RucioAPIHandler):
     def get(self):
         namespace = self.get_query_argument('namespace')
         auth_type = self.get_query_argument('type')
-
-        db = get_db()
-        auth_credentials = db.get_rucio_auth_credentials(namespace=namespace, auth_type=auth_type)
-
+        print(f"namespace: {namespace}, auth_type: {auth_type}")  # Debugging line
+        
+        if auth_type == 'oidc':
+            instance = self.rucio.for_instance(namespace)
+            # Initialize auth_credentials as an empty dictionary
+            auth_credentials = {}
+            # If the auth type is oidc, we need to check if the credentials are set
+            # and if the oidc_auth is set to env or file
+            print(f"Auth type is OIDC. Instance config: {instance.instance_config}")  # Debugging line
+            if instance.instance_config.get('oidc_auth') == 'env':
+                auth_credentials['oidc_auth_source'] = instance.instance_config.get('oidc_env_name')
+                print(f"OIDC auth source set to env: {auth_credentials['oidc_auth_source']}")  # Debugging line
+            elif instance.instance_config.get('oidc_auth') == 'file':
+                auth_credentials['oidc_auth_source'] = instance.instance_config.get('oidc_file_name')
+                print(f"OIDC auth source set to file: {auth_credentials['oidc_auth_source']}")  # Debugging line
+        else:
+            db = get_db()
+            auth_credentials = db.get_rucio_auth_credentials(namespace=namespace, auth_type=auth_type)
+                
+        print(f"auth_credentials: {auth_credentials}")  # Debugging line
         if auth_credentials:
             self.finish(json.dumps(auth_credentials))
         else:
@@ -92,6 +108,7 @@ class AuthConfigHandler(RucioAPIHandler):
                 )
             elif auth_type == 'oidc':
                 oidc_auth = params.get('oidc_auth')
+                print(f"oidc_auth: {oidc_auth}") # Debugging line
                 oidc_auth_source = params.get('oidc_env_name') if oidc_auth == 'env' else params.get('oidc_file_name')
                 authenticate_oidc(
                     base_url=base_url,

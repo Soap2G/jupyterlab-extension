@@ -225,6 +225,10 @@ const _Settings: React.FunctionComponent = props => {
       if (!rucioAuthCredentials) {
         setValidationResult('❌ Missing authentication credentials');
         setLoading(false);
+        setTimeout(() => {
+          setShowSaved(false);
+          setValidationResult(null); // revert to default state
+        }, 2000);
         return;
       }
   
