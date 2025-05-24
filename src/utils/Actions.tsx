@@ -40,13 +40,13 @@ export class Actions {
       namespace,
       ...(authType ? { auth_type: authType } : {})
     };
-  
+
     return requestAPI<{ success: boolean; error?: string }>(
       `validate-connection?${qs.encode(query)}`,
       { method: 'GET' }
     );
   }
-  
+
   async postActiveInstance(
     instanceName: string,
     authType: RucioAuthType
@@ -65,7 +65,7 @@ export class Actions {
   async fetchAuthConfig<T>(namespace: string, type: RucioAuthType): Promise<T> {
     const query = { namespace, type };
     const encodedQuery = qs.encode(query);
-    
+
     try {
       const response = await requestAPI<T>(`auth?${encodedQuery}`);
       return response;
