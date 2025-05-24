@@ -32,6 +32,21 @@ export class Actions {
     return requestAPI<IInstanceConfig>('instances');
   }
 
+  async validateConnection(
+    namespace: string | undefined,
+    authType?: string
+  ): Promise<{ success: boolean; error?: string }> {
+    const query = {
+      namespace,
+      ...(authType ? { auth_type: authType } : {})
+    };
+
+    return requestAPI<{ success: boolean; error?: string }>(
+      `validate-connection?${qs.encode(query)}`,
+      { method: 'GET' }
+    );
+  }
+
   async postActiveInstance(
     instanceName: string,
     authType: RucioAuthType
@@ -49,7 +64,14 @@ export class Actions {
 
   async fetchAuthConfig<T>(namespace: string, type: RucioAuthType): Promise<T> {
     const query = { namespace, type };
-    return requestAPI<T>(`auth?${qs.encode(query)}`);
+    const encodedQuery = qs.encode(query);
+
+    try {
+      const response = await requestAPI<T>(`auth?${encodedQuery}`);
+      return response;
+    } catch (error) {
+      throw error;
+    }
   }
 
   async putAuthConfig(

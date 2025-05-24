@@ -14,8 +14,19 @@ import rucio_jupyterlab.utils as utils
 from .utils import parse_timestamp, get_oidc_token
 
 
-class RucioAuthenticationException(BaseException):
-    pass
+class RucioAuthenticationException(Exception):
+    def __init__(self, response):
+        self.status_code = getattr(response, 'status_code', None)
+        self.reason = getattr(response, 'reason', 'Unknown')
+        self.headers = getattr(response, 'headers', {})
+
+        self.exception_class = self.headers.get('ExceptionClass', None)
+        self.exception_message = self.headers.get('ExceptionMessage', None)
+        self.message = self.exception_message or response.text if hasattr(response, 'text') else 'Unknown authentication error'
+
+        super().__init__(f"Authentication failed: {self.status_code} {self.reason}. "
+                         f"Message: {self.message}")
+
 
 
 def authenticate_userpass(base_url, username, password, account=None, vo=None, app_id=None, rucio_ca_cert=False):
@@ -27,7 +38,6 @@ def authenticate_userpass(base_url, username, password, account=None, vo=None, a
 
         response = requests.get(url=f'{base_url}/auth/userpass', headers=headers, verify=rucio_ca_cert)
         response_headers = response.headers
-
         auth_token = response_headers['X-Rucio-Auth-Token']
         expires = response_headers['X-Rucio-Auth-Token-Expires']
         expires = parse_timestamp(expires)
@@ -35,7 +45,7 @@ def authenticate_userpass(base_url, username, password, account=None, vo=None, a
         return (auth_token, expires)
     except:
         traceback.print_exc()
-        raise RucioAuthenticationException()
+        raise RucioAuthenticationException(response)
 
 
 def authenticate_x509(base_url, cert_path, key_path=None, account=None, vo=None, app_id=None, rucio_ca_cert=False):
@@ -57,22 +67,73 @@ def authenticate_x509(base_url, cert_path, key_path=None, account=None, vo=None,
     except:
         traceback.print_exc()
         raise RucioAuthenticationException()
+    
+
+def authenticate_x509_proxy(base_url, proxy_path=None, account=None, vo=None, app_id=None, rucio_ca_cert=False):
+    try:
+        print("Starting authenticate_x509_proxy...")
+        print(f"base_url: {base_url}")
+        print(f"proxy_path: {proxy_path}")
+        print(f"account: {account}")
+        print(f"vo: {vo}")
+        print(f"app_id: {app_id}")
+        print(f"rucio_ca_cert: {rucio_ca_cert}")
+
+        account = account if account != '' else None    # Empty string is considered None
+        print(f"Processed account: {account}")
+
+        headers = {'X-Rucio-Account': account, 'X-Rucio-VO': vo, 'X-Rucio-AppID': app_id}
+        print(f"Initial headers: {headers}")
+        headers = utils.remove_none_values(headers)
+        print(f"Headers after removing None values: {headers}")
+
+        cert = (proxy_path)
+        print(f"Certificate path: {cert}")
+
+        print("Sending request to Rucio server...")
+        response = requests.get(url=f'{base_url}/auth/x509_proxy', headers=headers, cert=cert, verify=rucio_ca_cert)
+        print(f"Response received. Status code: {response.status_code}")
+        print(f"Response headers: {response.headers}")
+
+        response_headers = response.headers
+        auth_token = response_headers.get('X-Rucio-Auth-Token', None)
+        expires = response_headers.get('X-Rucio-Auth-Token-Expires', None)
+        print(f"Auth token: {auth_token}")
+        print(f"Token expiration (raw): {expires}")
+
+        if not auth_token or not expires:
+            print("Missing authentication token or expiration in response headers.")
+            raise RucioAuthenticationException(response)
+
+        expires = parse_timestamp(expires)
+        print(f"Token expiration (parsed): {expires}")
+
+        print("Authentication successful.")
+        return (auth_token, expires)
+    except Exception as e:
+        print("An error occurred during x509 proxy authentication.")
+        traceback.print_exc()
+        raise RucioAuthenticationException(response)
 
 
 def authenticate_oidc(base_url, oidc_auth, oidc_auth_source, rucio_ca_cert=False):
     try:
         oidc_token = get_oidc_token(oidc_auth, oidc_auth_source)
+        print("-------------------------------------------------")
+        print(f"oidc_token: {oidc_token}")  # Debugging line
+        print("-------------------------------------------------")
         headers = {'X-Rucio-Auth-Token': oidc_token}
 
         response = requests.get(url=f'{base_url}/accounts/whoami', headers=headers, verify=rucio_ca_cert)
 
         if response.status_code != 200:
-            raise RucioAuthenticationException()
+            raise RucioAuthenticationException(response)
 
         jwt_payload = jwt.decode(oidc_token, options={"verify_signature": False})
         expires = jwt_payload['exp']
+        username = jwt_payload.get('sub')  # Assuming 'sub' contains the username
 
-        return (oidc_token, expires)
+        return (oidc_token, expires, username)
     except:
         traceback.print_exc()
-        raise RucioAuthenticationException()
+        raise RucioAuthenticationException(response)

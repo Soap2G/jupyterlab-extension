@@ -17,6 +17,7 @@ import { UIStore, resetRucioCaches } from '../../stores/UIStore';
 import { Button } from '../Button';
 import { withRequestAPI, IWithRequestAPIProps } from '../../utils/Actions';
 import { UserPassAuth } from './UserPassAuth';
+import { OIDCAuth } from './OIDCAuth';
 import { X509Auth } from './X509Auth';
 import { X509ProxyAuth } from './X509ProxyAuth';
 import {
@@ -24,7 +25,8 @@ import {
   RucioAuthType,
   IRucioUserpassAuth,
   IRucioX509Auth,
-  IRucioX509ProxyAuth
+  IRucioX509ProxyAuth,
+  IRucioOIDCAuth
 } from '../../types';
 import { HorizontalHeading } from '../HorizontalHeading';
 
@@ -54,6 +56,15 @@ const useStyles = createUseStyles({
   },
   buttonContainer: {
     extend: 'container'
+  },
+  validateButton: {
+    marginTop: '8px',
+    extend: 'container'
+  },
+  validationMessage: {
+    extend: 'subtitle',
+    marginTop: '8px',
+    margin: '8px 8px 16px 8px'
   },
   instanceName: {
     fontSize: '16pt'
@@ -98,7 +109,16 @@ const useStyles = createUseStyles({
     background: '#689f38',
     color: '#ffffff',
     '&:hover': {
-      background: '#689f38'
+      color: '#ffffff',
+      background: '#79C13A'
+    }
+  },
+  buttonSavedError: {
+    background: '#f44336',
+    color: '#ffffff',
+    '&:hover': {
+      color: '#ffffff',
+      background: '#DC3125'
     }
   },
   buttonPurgedAcknowledgement: {
@@ -147,6 +167,8 @@ const _Settings: React.FunctionComponent = props => {
     useState<IRucioX509Auth>();
   const [rucioX509ProxyAuthCredentials, setRucioX509ProxyAuthCredentials] =
     useState<IRucioX509ProxyAuth>();
+  const [rucioOIDCAuthCredentials, setRucioOIDCAuthCredentials] =
+    useState<IRucioOIDCAuth>();
   const [credentialsLoading, setCredentialsLoading] = useState<boolean>(true);
   const [loading, setLoading] = useState<boolean>(false);
   const [showSaved, setShowSaved] = useState<boolean>(false);
@@ -154,6 +176,7 @@ const _Settings: React.FunctionComponent = props => {
     useState<boolean>(false);
   const [purgingCache, setPurgingCache] = useState<boolean>(false);
   const [showCachePurged, setShowCachePurged] = useState<boolean>(false);
+  const [validationResult, setValidationResult] = useState<string | null>(null);
 
   const instanceOptions = useMemo(
     () => instances?.map(i => ({ label: i.displayName, value: i.name })),
@@ -178,19 +201,18 @@ const _Settings: React.FunctionComponent = props => {
       .catch(e => console.log(e));
   };
 
-  const saveSettings = () => {
+  const saveSettings = async () => {
     if (!selectedInstance) {
       return;
     }
 
+    setLoading(true);
+    setValidationResult(null);
+    setShowSaved(false);
+
     const promises = [];
-    if (selectedInstance && selectedAuthType) {
-      const setActiveInstancePromise = setActiveInstance(
-        selectedInstance,
-        selectedAuthType
-      );
-      promises.push(setActiveInstancePromise);
-    }
+    let putAuthConfigSuccess = false;
+    let putAuthConfigError: string | null = null;
 
     if (selectedAuthType) {
       const rucioAuthCredentials = (() => {
@@ -201,26 +223,72 @@ const _Settings: React.FunctionComponent = props => {
             return rucioX509AuthCredentials;
           case 'x509_proxy':
             return rucioX509ProxyAuthCredentials;
+          case 'oidc':
+            return rucioOIDCAuthCredentials;
+          default:
+            return null;
         }
       })();
 
-      if (rucioAuthCredentials) {
-        const setPutAuthConfigPromise = actions.putAuthConfig(
-          selectedInstance,
-          selectedAuthType,
-          rucioAuthCredentials
-        );
-        promises.push(setPutAuthConfigPromise);
+      if (!rucioAuthCredentials) {
+        setValidationResult('❌ Missing authentication credentials');
+        setLoading(false);
+        setTimeout(() => {
+          setShowSaved(false);
+          setValidationResult(null); // revert to default state
+        }, 2000);
+        return;
       }
+
+      promises.push(
+        actions
+          .putAuthConfig(
+            selectedInstance,
+            selectedAuthType,
+            rucioAuthCredentials
+          )
+          .then(() => {
+            putAuthConfigSuccess = true;
+          })
+          .catch(err => {
+            putAuthConfigError = `${err.message || 'Unknown error'}${err.exception_class
+                ? ` (Exception Class: ${err.exception_class})`
+                : ''
+              }${err.exception_message
+                ? ` (Exception Message: ${err.exception_message})`
+                : ''
+              }`;
+          })
+      );
     }
 
-    setLoading(true);
-    Promise.all(promises)
-      .then(() => {
+    if (selectedInstance && selectedAuthType) {
+      promises.push(setActiveInstance(selectedInstance, selectedAuthType));
+    }
+
+    try {
+      await Promise.all(promises);
+      if (putAuthConfigSuccess) {
+        setValidationResult('✅ Connection successful!');
         setShowSaved(true);
-        setTimeout(() => setShowSaved(false), 3000);
-      })
-      .finally(() => setLoading(false));
+        setTimeout(() => {
+          setShowSaved(false);
+          setValidationResult(null); // revert to default state
+        }, 3000);
+      } else if (putAuthConfigError) {
+        setValidationResult(`❌ ${putAuthConfigError}`);
+        setTimeout(() => {
+          setShowSaved(false);
+          setValidationResult(null); // revert to default state
+        }, 5000);
+      }
+    } catch (err) {
+      setValidationResult(
+        `❌ Unexpected error: ${err instanceof Error ? err.message : String(err)}`
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   const reloadAuthConfig = () => {
@@ -231,11 +299,25 @@ const _Settings: React.FunctionComponent = props => {
     setCredentialsLoading(true);
 
     if (selectedAuthType === 'userpass') {
+      console.log('Fetching userpass auth config');
+      console.log(
+        'Fetching userpass auth config for instance:',
+        selectedInstance
+      );
       actions
         .fetchAuthConfig<IRucioUserpassAuth>(selectedInstance, selectedAuthType)
-        .then(c => setRucioUserpassAuthCredentials(c))
-        .catch(() => setRucioUserpassAuthCredentials(undefined))
-        .finally(() => setCredentialsLoading(false));
+        .then(c => {
+          console.log('Fetched userpass auth config successfully:', c);
+          setRucioUserpassAuthCredentials(c);
+        })
+        .catch(err => {
+          console.error('Error fetching userpass auth config:', err);
+          setRucioUserpassAuthCredentials(undefined);
+        })
+        .finally(() => {
+          console.log('Finished fetching userpass auth config');
+          setCredentialsLoading(false);
+        });
     } else if (selectedAuthType === 'x509') {
       actions
         .fetchAuthConfig<IRucioX509Auth>(selectedInstance, selectedAuthType)
@@ -251,6 +333,22 @@ const _Settings: React.FunctionComponent = props => {
         .then(c => setRucioX509ProxyAuthCredentials(c))
         .catch(() => setRucioX509ProxyAuthCredentials(undefined))
         .finally(() => setCredentialsLoading(false));
+    } else if (selectedAuthType === 'oidc') {
+      console.log('Fetching OIDC auth config for instance:', selectedInstance);
+      actions
+        .fetchAuthConfig<IRucioOIDCAuth>(selectedInstance, selectedAuthType)
+        .then(c => {
+          console.log('Fetched OIDC auth config successfully:', c);
+          setRucioOIDCAuthCredentials(c);
+        })
+        .catch(err => {
+          console.error('Error fetching OIDC auth config:', err);
+          setRucioOIDCAuthCredentials(undefined);
+        })
+        .finally(() => {
+          console.log('Finished fetching OIDC auth config');
+          setCredentialsLoading(false);
+        });
     }
   };
 
@@ -330,6 +428,20 @@ const _Settings: React.FunctionComponent = props => {
           </div>
         </div>
         <div>
+          <div
+            className={
+              selectedInstance && selectedAuthType === 'oidc'
+                ? ''
+                : classes.hidden
+            }
+          >
+            <HorizontalHeading title="OpenID Connect" />
+            <OIDCAuth
+              loading={credentialsLoading}
+              params={rucioOIDCAuthCredentials}
+              onAuthParamsChange={v => setRucioOIDCAuthCredentials(v)}
+            />
+          </div>
           <div
             className={
               selectedInstance && selectedAuthType === 'userpass'
@@ -430,18 +542,32 @@ const _Settings: React.FunctionComponent = props => {
           block
           onClick={saveSettings}
           disabled={!settingsComplete || loading}
-          outlineColor={!loading && showSaved ? '#689f38' : undefined}
-          color={!loading && showSaved ? '#FFFFFF' : undefined}
+          outlineColor={showSaved ? '#689f38' : undefined}
+          color={showSaved ? '#FFFFFF' : undefined}
           className={
-            !loading && showSaved
+            showSaved
               ? classes.buttonSavedAcknowledgement
-              : undefined
+              : validationResult?.startsWith('❌')
+                ? classes.buttonSavedError
+                : undefined
           }
         >
-          {!loading && !showSaved && <>Save Settings</>}
-          {loading && <>Saving...</>}
-          {!loading && showSaved && <>Saved!</>}
+          {loading ? (
+            selectedAuthType === 'oidc' ? <>Validating...</> : <>Saving...</>
+          ) : showSaved ? (
+            selectedAuthType === 'oidc' ? <>Validated!</> : <>Saved!</>
+          ) : validationResult?.startsWith('❌') ? (
+            <>Error!</>
+          ) : selectedAuthType === 'oidc' ? (
+            <>Validate</>
+          ) : (
+            <>Save Settings</>
+          )}
         </Button>
+
+        {validationResult && (
+          <div className={classes.validationMessage}>{validationResult}</div>
+        )}
       </div>
     </div>
   );

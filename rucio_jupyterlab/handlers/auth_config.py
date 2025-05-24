@@ -13,6 +13,7 @@ from rucio_jupyterlab.db import get_db
 from rucio_jupyterlab.rucio import RucioAPI
 from .base import RucioAPIHandler
 from rucio_jupyterlab.metrics import prometheus_metrics
+from rucio_jupyterlab.rucio.authenticators import authenticate_userpass, authenticate_x509, authenticate_oidc, authenticate_x509_proxy
 
 
 
@@ -26,15 +27,32 @@ class AuthConfigHandler(RucioAPIHandler):
     def get(self):
         namespace = self.get_query_argument('namespace')
         auth_type = self.get_query_argument('type')
-
-        db = get_db()  # pylint: disable=invalid-name
-        auth_credentials = db.get_rucio_auth_credentials(namespace=namespace, auth_type=auth_type)
-
+        print(f"namespace: {namespace}, auth_type: {auth_type}")  # Debugging line
+        
+        if auth_type == 'oidc':
+            instance = self.rucio.for_instance(namespace)
+            # Initialize auth_credentials as an empty dictionary
+            auth_credentials = {}
+            # If the auth type is oidc, we need to check if the credentials are set
+            # and if the oidc_auth is set to env or file
+            print(f"Auth type is OIDC. Instance config: {instance.instance_config}")  # Debugging line
+            if instance.instance_config.get('oidc_auth') == 'env':
+                auth_credentials['oidc_auth_source'] = instance.instance_config.get('oidc_env_name')
+                print(f"OIDC auth source set to env: {auth_credentials['oidc_auth_source']}")  # Debugging line
+            elif instance.instance_config.get('oidc_auth') == 'file':
+                auth_credentials['oidc_auth_source'] = instance.instance_config.get('oidc_file_name')
+                print(f"OIDC auth source set to file: {auth_credentials['oidc_auth_source']}")  # Debugging line
+        else:
+            db = get_db()
+            auth_credentials = db.get_rucio_auth_credentials(namespace=namespace, auth_type=auth_type)
+                
+        print(f"auth_credentials: {auth_credentials}")  # Debugging line
         if auth_credentials:
             self.finish(json.dumps(auth_credentials))
         else:
             self.set_status(404)
             self.finish({'success': False, 'error': 'Auth credentials not set'})
+
 
     @tornado.web.authenticated
     @prometheus_metrics
@@ -44,9 +62,79 @@ class AuthConfigHandler(RucioAPIHandler):
         auth_type = json_body['type']
         params = json_body['params']
 
-        db = get_db()  # pylint: disable=invalid-name
+        db = get_db()
         db.set_rucio_auth_credentials(namespace=namespace, auth_type=auth_type, params=params)
 
         RucioAPI.clear_auth_token_cache()
 
-        self.finish(json.dumps({'success': True}))
+        # Get instance config to perform connection test
+        instance = self.rucio.for_instance(namespace)
+        app_id = instance.instance_config.get('app_id')
+        vo = instance.instance_config.get('vo')
+        base_url = instance.instance_config.get("rucio_base_url")
+        rucio_ca_cert = instance.instance_config.get("rucio_ca_cert", False)
+        oidc_auth = instance.instance_config.get("oidc_auth")
+
+        try:
+            if auth_type == 'userpass':
+                authenticate_userpass(
+                    base_url=base_url,
+                    username=params.get('username'),
+                    password=params.get('password'),
+                    account=params.get('account'),
+                    vo=vo,
+                    app_id=app_id,
+                    rucio_ca_cert=rucio_ca_cert
+                )
+            elif auth_type == 'x509':
+                authenticate_x509(
+                    base_url=base_url,
+                    cert_path=params.get('certificate'),
+                    key_path=params.get('key'),
+                    account=params.get('account'),
+                    vo=vo,
+                    app_id=app_id,
+                    rucio_ca_cert=rucio_ca_cert
+                )
+            elif auth_type == 'x509_proxy':
+                print(f"params: {params}")  # Debugging line
+                authenticate_x509_proxy(
+                    base_url=base_url,
+                    proxy_path=params.get('proxy'),
+                    account=params.get('account'),
+                    vo=vo,
+                    app_id=app_id,
+                    rucio_ca_cert=rucio_ca_cert
+                )
+            elif auth_type == 'oidc':
+                print("-------------------------------------------------")
+                print(f"params: {params}")  # Debugging line
+                print(f"oidc_auth: {oidc_auth}") # Debugging line
+                oidc_auth_source = params.get('oidcAuthSource')
+                print(f"oidc_auth_source: {oidc_auth_source}") # Debugging line
+                authenticate_oidc(
+                    base_url=base_url,
+                    oidc_auth=oidc_auth,
+                    oidc_auth_source=oidc_auth_source,
+                    rucio_ca_cert=rucio_ca_cert
+                )
+            else:
+                raise ValueError("Unsupported authentication type")
+
+            # If no exception, authentication was successful
+            self.finish(json.dumps({'success': True}))
+        except Exception as e:
+            self.set_status(e.status_code or 401)
+
+            formatted_error = (
+                f"{e.message} "
+                f"(ExceptionClass: {e.exception_class}, "
+                f"ExceptionMessage: {e.exception_message})"
+            )
+
+            self.finish(json.dumps({
+                'success': False,
+                'error': e.message,
+                'exception_class': e.exception_class,
+                'exception_message': e.exception_message
+            }))
