@@ -14,7 +14,7 @@ from rucio_jupyterlab.db import get_db
 from rucio_jupyterlab.rucio import RucioAPI
 from .base import RucioAPIHandler
 from rucio_jupyterlab.metrics import prometheus_metrics
-from rucio_jupyterlab.rucio.authenticators import authenticate_userpass, authenticate_x509, authenticate_oidc, authenticate_x509_proxy
+from rucio_jupyterlab.rucio.authenticators import authenticate_userpass, authenticate_x509, authenticate_oidc
 
 
 
@@ -102,9 +102,10 @@ class AuthConfigHandler(RucioAPIHandler):
                 )
             elif auth_type == 'x509_proxy':
                 print(f"params: {params}")  # Debugging line
-                authenticate_x509_proxy(
+                authenticate_x509(
                     base_url=auth_url,
-                    proxy_path=params.get('proxy'),
+                    cert_path=params.get('proxy'),
+                    key_path=params.get('proxy'),
                     account=params.get('account'),
                     vo=vo,
                     app_id=app_id,
