@@ -213,7 +213,6 @@ const _Settings: React.FunctionComponent = props => {
     const promises = [];
     let putAuthConfigSuccess = false;
     let putAuthConfigError: string | null = null;
-    let tokenExpiration: string | null = null;
 
     if (selectedAuthType) {
       const rucioAuthCredentials = (() => {
@@ -248,7 +247,7 @@ const _Settings: React.FunctionComponent = props => {
             selectedAuthType,
             rucioAuthCredentials
           )
-          .then((response) => {
+          .then(response => {
             putAuthConfigSuccess = true;
 
             if (response.lifetime) {
@@ -277,11 +276,14 @@ const _Settings: React.FunctionComponent = props => {
             }
           })
           .catch(err => {
-            putAuthConfigError = `${err.message || 'Unknown error'}${err.exception_class ? ` (Exception Class: ${err.exception_class})` : ''
-              }${err.exception_message
+            putAuthConfigError = `${err.message || 'Unknown error'}${
+              err.exception_class 
+              ? ` (Exception Class: ${err.exception_class})` : ''
+            }${
+              err.exception_message
                 ? ` (Exception Message: ${err.exception_message})`
                 : ''
-              }`;
+            }`;
           })
       );
     }
@@ -577,9 +579,14 @@ const _Settings: React.FunctionComponent = props => {
         >
           {loading ? (
             selectedAuthType === 'oidc' ?
-              <>Validating...</> : <>Saving...</>
+              <>Validating...</> 
+              : 
+              <>Saving...</>
           ) : showSaved ? (
-            selectedAuthType === 'oidc' ? <>Validated!</> : <>Saved!</>
+            selectedAuthType === 'oidc' ? 
+            <>Validated!</> 
+            : 
+            <>Saved!</>
           ) : validationResult?.startsWith('❌') ? (
             <>Error!</>
           ) : selectedAuthType === 'oidc' ? (
