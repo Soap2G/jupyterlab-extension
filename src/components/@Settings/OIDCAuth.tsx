@@ -56,10 +56,6 @@ export const OIDCAuth: React.FC<MyProps> = ({
 }) => {
   const classes = useStyles();
 
-  const onAccountChange = (account?: string) => {
-    onAuthParamsChange({ ...params, account });
-  };
-
   const loadingSpinner = (
     <div className={classes.loadingContainer}>
       <Spinning className={`${classes.loadingIcon} material-icons`}>
@@ -70,18 +66,6 @@ export const OIDCAuth: React.FC<MyProps> = ({
 
   return (
     <>
-      <div className={classes.container}>
-        <div className={classes.textFieldContainer}>
-          <div className={classes.label}>Account</div>
-          <TextField
-            placeholder="Account"
-            value={params.account}
-            onChange={e => onAccountChange(e.target.value)}
-            disabled={loading}
-            after={loading ? loadingSpinner : undefined}
-          />
-        </div>
-      </div>
     </>
   );
 };

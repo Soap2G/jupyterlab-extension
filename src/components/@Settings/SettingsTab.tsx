@@ -460,7 +460,8 @@ const _Settings: React.FunctionComponent = props => {
                 : classes.hidden
             }
           >
-            <HorizontalHeading title="OpenID Connect" />
+            {/* To be added if custom OIDC token setup is needed */}
+            {/* <HorizontalHeading title="OpenID Connect" /> */}
             <OIDCAuth
               loading={credentialsLoading}
               params={rucioOIDCAuthCredentials}
