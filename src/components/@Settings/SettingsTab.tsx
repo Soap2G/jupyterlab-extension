@@ -213,6 +213,7 @@ const _Settings: React.FunctionComponent = props => {
     const promises = [];
     let putAuthConfigSuccess = false;
     let putAuthConfigError: string | null = null;
+    let tokenExpiration: string | null = null;
 
     if (selectedAuthType) {
       const rucioAuthCredentials = (() => {
@@ -247,13 +248,36 @@ const _Settings: React.FunctionComponent = props => {
             selectedAuthType,
             rucioAuthCredentials
           )
-          .then(() => {
+          .then((response) => {
             putAuthConfigSuccess = true;
+
+            if (response.lifetime) {
+              const expiration = new Date(response.lifetime);
+              const now = new Date();
+
+              const diffMs = expiration.getTime() - now.getTime(); // milliseconds
+              const diffSec = Math.floor(diffMs / 1000);
+              const diffMin = Math.floor(diffSec / 60);
+              const diffHr = Math.floor(diffMin / 60);
+              const remainingMin = diffMin % 60;
+
+              let timeLeftStr = '';
+              if (diffMs <= 0) {
+                timeLeftStr = 'Token has expired';
+              } else if (diffHr > 0) {
+                timeLeftStr = `${diffHr}h ${remainingMin}m`;
+              } else {
+                timeLeftStr = `${diffMin} minute${diffMin !== 1 ? 's' : ''}`;
+              }
+              setValidationResult(
+                `✅ Connection successful!\n🕙 Time left: ${timeLeftStr}`
+              );
+            } else {
+              setValidationResult('✅ Connection successful!');
+            }
           })
           .catch(err => {
-            putAuthConfigError = `${err.message || 'Unknown error'}${err.exception_class
-                ? ` (Exception Class: ${err.exception_class})`
-                : ''
+            putAuthConfigError = `${err.message || 'Unknown error'}${err.exception_class ? ` (Exception Class: ${err.exception_class})` : ''
               }${err.exception_message
                 ? ` (Exception Message: ${err.exception_message})`
                 : ''
@@ -269,7 +293,6 @@ const _Settings: React.FunctionComponent = props => {
     try {
       await Promise.all(promises);
       if (putAuthConfigSuccess) {
-        setValidationResult('✅ Connection successful!');
         setShowSaved(true);
         setTimeout(() => {
           setShowSaved(false);
@@ -553,7 +576,8 @@ const _Settings: React.FunctionComponent = props => {
           }
         >
           {loading ? (
-            selectedAuthType === 'oidc' ? <>Validating...</> : <>Saving...</>
+            selectedAuthType === 'oidc' ?
+              <>Validating...</> : <>Saving...</>
           ) : showSaved ? (
             selectedAuthType === 'oidc' ? <>Validated!</> : <>Saved!</>
           ) : validationResult?.startsWith('❌') ? (
@@ -566,7 +590,14 @@ const _Settings: React.FunctionComponent = props => {
         </Button>
 
         {validationResult && (
-          <div className={classes.validationMessage}>{validationResult}</div>
+          <div className={classes.validationMessage}>
+            {validationResult.split('\n').map((line, index) => (
+              <span key={index}>
+                {line}
+                <br />
+              </span>
+            ))}
+          </div>
         )}
       </div>
     </div>

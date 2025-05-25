@@ -124,16 +124,15 @@ def authenticate_oidc(base_url, oidc_auth, oidc_auth_source, rucio_ca_cert=False
         print("-------------------------------------------------")
         headers = {'X-Rucio-Auth-Token': oidc_token}
 
-        response = requests.get(url=f'{base_url}/accounts/whoami', headers=headers, verify=rucio_ca_cert)
+        response = requests.get(url=f'{base_url}/auth/validate', headers=headers, verify=rucio_ca_cert)
 
         if response.status_code != 200:
             raise RucioAuthenticationException(response)
 
         jwt_payload = jwt.decode(oidc_token, options={"verify_signature": False})
-        expires = jwt_payload['exp']
-        username = jwt_payload.get('sub')  # Assuming 'sub' contains the username
+        lifetime = jwt_payload['exp']
 
-        return (oidc_token, expires, username)
+        return (jwt_payload.get('sub', None), lifetime)
     except:
         traceback.print_exc()
         raise RucioAuthenticationException(response)

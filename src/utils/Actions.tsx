@@ -27,6 +27,14 @@ import {
   FileUploadLog
 } from '../types';
 
+export type AuthConfigResponse = {
+  success: boolean;
+  lifetime?: string;
+  error?: string;
+  exception_class?: string;
+  exception_message?: string;
+};
+
 export class Actions {
   async fetchInstancesConfig(): Promise<IInstanceConfig> {
     return requestAPI<IInstanceConfig>('instances');
@@ -66,19 +74,15 @@ export class Actions {
     const query = { namespace, type };
     const encodedQuery = qs.encode(query);
 
-    try {
-      const response = await requestAPI<T>(`auth?${encodedQuery}`);
-      return response;
-    } catch (error) {
-      throw error;
-    }
+    const response = await requestAPI<T>(`auth?${encodedQuery}`);
+    return response;
   }
 
   async putAuthConfig(
     namespace: string,
     type: RucioAuthType,
     params: RucioAuthCredentials
-  ): Promise<void> {
+  ): Promise<AuthConfigResponse> {
     const init = {
       method: 'PUT',
       body: JSON.stringify({
@@ -88,7 +92,7 @@ export class Actions {
       })
     };
 
-    return requestAPI('auth', init);
+    return requestAPI<AuthConfigResponse>('auth', init);
   }
 
   async searchDID(
