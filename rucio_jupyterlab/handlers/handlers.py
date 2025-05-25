@@ -26,7 +26,6 @@ from .upload_jobs import UploadJobsHandler
 from .upload_jobs_details import UploadJobsDetailsHandler
 from .upload_jobs_log import UploadJobsLogHandler
 from .upload import UploadHandler
-from .validate_connection import ValidateConnectionHandler
 
 def setup_handlers(web_app):  # pragma: no cover
     host_pattern = ".*$"
@@ -55,8 +54,6 @@ def setup_handlers(web_app):  # pragma: no cover
         (url_path_join(base_path, 'upload', 'jobs'), UploadJobsHandler, handler_params),
         (url_path_join(base_path, 'upload', 'jobs', 'details'), UploadJobsDetailsHandler, handler_params),
         (url_path_join(base_path, 'upload', 'jobs', 'log'), UploadJobsLogHandler, handler_params),
-        (url_path_join(base_path, 'upload'), UploadHandler, handler_params),
-        (url_path_join(base_path, 'validate-connection'), ValidateConnectionHandler, handler_params),
-
+        (url_path_join(base_path, 'upload'), UploadHandler, handler_params)
     ]
     web_app.add_handlers(host_pattern, handlers)
