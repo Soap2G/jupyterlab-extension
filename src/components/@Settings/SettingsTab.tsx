@@ -344,11 +344,21 @@ const _Settings: React.FunctionComponent = props => {
           setCredentialsLoading(false);
         });
     } else if (selectedAuthType === 'x509') {
+      console.log('Fetching X.509 auth config for instance:', selectedInstance);
       actions
         .fetchAuthConfig<IRucioX509Auth>(selectedInstance, selectedAuthType)
-        .then(c => setRucioX509AuthCredentials(c))
-        .catch(() => setRucioX509AuthCredentials(undefined))
-        .finally(() => setCredentialsLoading(false));
+        .then(c => {
+          console.log('Fetched X.509 auth config successfully:', c);
+          setRucioX509AuthCredentials(c);
+        })
+        .catch(err => {
+          console.error('Error fetching X.509 auth config:', err);
+          setRucioX509AuthCredentials(undefined);
+        })
+        .finally(() => {
+          console.log('Finished fetching X.509 auth config');
+          setCredentialsLoading(false);
+        });
     } else if (selectedAuthType === 'x509_proxy') {
       actions
         .fetchAuthConfig<IRucioX509ProxyAuth>(
