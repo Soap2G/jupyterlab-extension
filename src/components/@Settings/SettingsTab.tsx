@@ -17,7 +17,7 @@ import { UIStore, resetRucioCaches } from '../../stores/UIStore';
 import { Button } from '../Button';
 import { withRequestAPI, IWithRequestAPIProps } from '../../utils/Actions';
 import { UserPassAuth } from './UserPassAuth';
-import { OIDCAuth } from './OIDCAuth';
+// import { OIDCAuth } from './OIDCAuth';
 import { X509Auth } from './X509Auth';
 import { X509ProxyAuth } from './X509ProxyAuth';
 import {
@@ -453,7 +453,7 @@ const _Settings: React.FunctionComponent = props => {
           </div>
         </div>
         <div>
-          <div
+          {/* <div
             className={
               selectedInstance && selectedAuthType === 'oidc'
                 ? ''
@@ -461,13 +461,13 @@ const _Settings: React.FunctionComponent = props => {
             }
           >
             {/* To be added if custom OIDC token setup is needed */}
-            {/* <HorizontalHeading title="OpenID Connect" /> */}
+            {/* <HorizontalHeading title="OpenID Connect" />
             <OIDCAuth
               loading={credentialsLoading}
               params={rucioOIDCAuthCredentials}
               onAuthParamsChange={v => setRucioOIDCAuthCredentials(v)}
             />
-          </div>
+          </div> */}
           <div
             className={
               selectedInstance && selectedAuthType === 'userpass'
