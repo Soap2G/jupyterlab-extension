@@ -44,7 +44,7 @@ class AuthConfigHandler(RucioAPIHandler):
                 auth_credentials['oidc_auth_source'] = instance.instance_config.get('oidc_file_name')
                 print(f"OIDC auth source set to file: {auth_credentials['oidc_auth_source']}")  # Debugging line
         else:
-            db = get_db()
+            db = get_db()  # pylint: disable=invalid-name
             auth_credentials = db.get_rucio_auth_credentials(namespace=namespace, auth_type=auth_type)
                 
         print(f"auth_credentials: {auth_credentials}")  # Debugging line
@@ -63,7 +63,7 @@ class AuthConfigHandler(RucioAPIHandler):
         auth_type = json_body['type']
         params = json_body['params']
 
-        db = get_db()
+        db = get_db()  # pylint: disable=invalid-name
         db.set_rucio_auth_credentials(namespace=namespace, auth_type=auth_type, params=params)
 
         RucioAPI.clear_auth_token_cache()
