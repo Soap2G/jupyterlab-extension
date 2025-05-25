@@ -277,7 +277,7 @@ const _Settings: React.FunctionComponent = props => {
           })
           .catch(err => {
             putAuthConfigError = `${err.message || 'Unknown error'}${
-              err.exception_class 
+              err.exception_class
               ? ` (Exception Class: ${err.exception_class})` : ''
             }${
               err.exception_message
