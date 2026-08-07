@@ -360,6 +360,17 @@ class RucioAPI:
         app_id = self.instance_config.get('app_id')
         vo = self.instance_config.get('vo')
 
+        # The token endpoints below are deliberately called without a VO (see the TODOs).
+        # The download client, however, does receive `vo` via the generated rucio.cfg, so a
+        # wrong `vo` is invisible while browsing and only surfaces as an opaque
+        # "Cannot authenticate" once a download starts. Say so up front.
+        if vo and auth_type in ('userpass', 'x509', 'x509_proxy'):
+            logger.warning(
+                "Instance '%s' sets vo='%s', but %s authentication is performed without a VO. "
+                "Only the download client uses it, so an incorrect vo fails at download time only.",
+                self.instance_config.get('name'), vo, auth_type
+            )
+
         try:
             if auth_type == 'userpass':
                 username = auth_config.get('username')
