@@ -28,3 +28,52 @@ def test_rucio_client_environment_write_temp_config_file__should_make_correct_di
         RucioClientEnvironment.write_temp_config_file('/path', mock_config)
         mock_file.assert_called_with(os.path.join('/path', 'etc', 'rucio.cfg'), 'w')
         os.makedirs.assert_called_once_with(os.path.join('/path', 'etc'), exist_ok=True)    # pylint: disable=no-member
+
+
+def _make_env(rucio, tmp_path):
+    instance = RucioClientEnvironment.__new__(RucioClientEnvironment)
+    instance.rucio = rucio
+    instance.instance_config = {}
+    instance.base_url = 'https://rucio'
+    instance.auth_config = None
+    instance.auth_type = 'oidc'
+    instance.auth_url = 'https://rucio-auth'
+    instance.tempdir = None
+    return instance
+
+
+def test_prepare_oidc_authentication__writes_token_and_sets_env_var(mocker, tmp_path):
+    rucio = mocker.Mock()
+    rucio._get_auth_token.return_value = 'my-oidc-token'
+    env = _make_env(rucio, tmp_path)
+    mocker.patch.dict(os.environ, {}, clear=False)
+
+    env.prepare_oidc_authentication(str(tmp_path))
+
+    token_file_path = os.path.join(str(tmp_path), 'bearer_token')
+    assert os.environ['BEARER_TOKEN_FILE'] == token_file_path
+    with open(token_file_path) as f:
+        assert f.read() == 'my-oidc-token'
+
+
+def test_prepare_oidc_authentication__no_token_does_not_set_env_var(mocker, tmp_path):
+    rucio = mocker.Mock()
+    rucio._get_auth_token.return_value = None
+    env = _make_env(rucio, tmp_path)
+    os.environ.pop('BEARER_TOKEN_FILE', None)
+
+    env.prepare_oidc_authentication(str(tmp_path))
+
+    assert 'BEARER_TOKEN_FILE' not in os.environ
+    assert not os.path.exists(os.path.join(str(tmp_path), 'bearer_token'))
+
+
+def test_prepare_oidc_authentication__auth_token_exception_is_handled(mocker, tmp_path):
+    rucio = mocker.Mock()
+    rucio._get_auth_token.side_effect = RuntimeError('cannot authenticate')
+    env = _make_env(rucio, tmp_path)
+    os.environ.pop('BEARER_TOKEN_FILE', None)
+
+    env.prepare_oidc_authentication(str(tmp_path))  # should not raise
+
+    assert 'BEARER_TOKEN_FILE' not in os.environ
