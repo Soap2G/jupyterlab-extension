@@ -166,6 +166,16 @@ def test_diagnose_no_files_downloaded_is_actionable():
     assert hint is not None and 'gfal2' in hint, "NoFilesDownloaded must suggest the usual causes"
 
 
+def test_diagnose_missing_oidc_token_is_actionable():
+    hint = RucioFileDownloader.diagnose(RuntimeError('No OIDC token available for the download client.'), {})
+    assert hint is not None and 'OIDC' in hint, "A missing OIDC token must point at re-authenticating"
+
+
+def test_diagnose_oidc_token_error_is_actionable():
+    hint = RucioFileDownloader.diagnose(RuntimeError('Could not obtain an OIDC token for the download client: boom'), {})
+    assert hint is not None and 'OIDC' in hint, "An OIDC token retrieval failure must point at re-authenticating"
+
+
 def test_diagnose_unknown_exception_returns_none():
     assert RucioFileDownloader.diagnose(ValueError('something else'), {'vo': 'escape'}) is None
 

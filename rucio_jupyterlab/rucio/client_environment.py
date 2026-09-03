@@ -122,16 +122,18 @@ class RucioClientEnvironment:
         to authenticate API calls for browsing, see RucioAPI._get_auth_token). Handing it
         to the subprocess via WLCG Bearer Token Discovery (BEARER_TOKEN_FILE) makes the
         Rucio client pick it up directly and skip its interactive login entirely.
+
+        Raises if a token can't be obtained or written: falling through here would leave
+        the Rucio client to fall back to its own interactive login instead, which is
+        exactly the failure this method exists to avoid, so it must fail loudly instead.
         """
         try:
             token = self.rucio._get_auth_token()
-        except Exception:
-            logger.exception("Failed to obtain an OIDC token for the download client.")
-            return
+        except Exception as e:
+            raise RuntimeError(f"Could not obtain an OIDC token for the download client: {e}") from e
 
         if not token:
-            logger.warning("No OIDC token available to hand to the download client.")
-            return
+            raise RuntimeError("No OIDC token available for the download client.")
 
         token_file_path = os.path.join(rucio_home, 'bearer_token')
         try:
@@ -141,7 +143,7 @@ class RucioClientEnvironment:
             os.environ['BEARER_TOKEN_FILE'] = token_file_path
             logger.info("Set BEARER_TOKEN_FILE for OIDC download authentication.")
         except OSError as e:
-            logger.error("Failed to write bearer token file at %s: %s", token_file_path, e)
+            raise RuntimeError(f"Failed to write bearer token file at {token_file_path}: {e}") from e
 
     def prepare_x509_proxy_authentication(self, rucio_home):
         logger.info("Preparing x509 proxy authentication.")

@@ -54,6 +54,12 @@ class RucioFileDownloader:
                     "system-installed gfal2 is not visible from a virtualenv unless it was "
                     "created with --system-site-packages and the same Python version.")
 
+        if 'OIDC token' in text and ('obtain an OIDC token' in text or 'No OIDC token available' in text):
+            return ("The extension could not get a valid OIDC token to hand to the download "
+                    "client, so the download was stopped before it could fall back to an "
+                    "interactive login it has no terminal to complete. Re-authenticate in the "
+                    "browsing UI (the token may have expired) and try the download again.")
+
         if name == 'NoFilesDownloaded' or 'none of the requested files' in text.lower():
             return ("No file could be retrieved from any source. Common causes: the transfer "
                     "library for the RSE protocol is missing (see gfal2 above), or the storage "
